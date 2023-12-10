@@ -112,6 +112,13 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _kmController = TextEditingController();
   final TextEditingController _miController = TextEditingController();
 
+  double _calories = 0;
+  double _kilojoules = 0;
+  double _paceInSecsPerKm = 0;
+  double _paceInSecsPerMi = 0;
+  double _distanceInKm = 0;
+  double _distanceInMi = 0;
+
   @override
   void initState() {
     super.initState();
@@ -120,65 +127,50 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _convertEnergy(String input, bool isKjToCal) {
-    if (input.isNotEmpty) {
+    setState(() {
       double value = double.tryParse(input) ?? 0;
       if (isKjToCal) {
-        // Convert kilojoules to calories (1 kJ = 0.239005736 calories)
-        _calController.text = (value * 0.239005736).toStringAsFixed(2);
+        _kilojoules = value;
+        _calories = _kilojoules * 0.239005736; // Convert kilojoules to calories
+        _calController.text = _calories.toStringAsFixed(2);
       } else {
-        // Convert calories to kilojoules (1 calorie = 4.184 kilojoules)
-        _kjController.text = (value * 4.184).toStringAsFixed(2);
+        _calories = value;
+        _kilojoules = _calories / 0.239005736; // Convert calories to kilojoules
+        _kjController.text = _kilojoules.toStringAsFixed(2);
       }
-    } else {
-      if (isKjToCal) {
-        _calController.clear();
-      } else {
-        _kjController.clear();
-      }
-    }
+    });
   }
 
   void _convertPace(String input, bool isMinsPerKm) {
-    if (input.isNotEmpty) {
-      final parts = input.split(':');
-      if (parts.length == 2) {
-        final minutes = int.tryParse(parts[0]);
-        final seconds = int.tryParse(parts[1]);
-        if (minutes != null && seconds != null) {
-          final totalMinutes = minutes + (seconds / 60);
-          if (isMinsPerKm) {
-            // Convert min/km to min/mi
-            final convertedValue = totalMinutes * 1.60934;
-            _minsPerMiController.text = _formatPace(convertedValue);
-          } else {
-            // Convert min/mile to min/km
-            final convertedValue = totalMinutes / 1.60934;
-            _minsPerKmController.text = _formatPace(convertedValue);
-          }
-        }
-      }
+    double totalSeconds = _getPaceInSeconds(input);
+    if (isMinsPerKm) {
+      _paceInSecsPerKm = totalSeconds;
+      _paceInSecsPerMi = _paceInSecsPerKm * 1.60934; // Convert min/km to min/mi
+      _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
     } else {
-      if (isMinsPerKm) {
-        _minsPerMiController.clear();
-      } else {
-        _minsPerKmController.clear();
-      }
+      _paceInSecsPerMi = totalSeconds;
+      _paceInSecsPerKm = _paceInSecsPerMi / 1.60934; // Convert min/mi to min/km
+      _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
     }
+    setState(() {}); // Trigger a rebuild
   }
 
   String _formatPace(double value) {
-    final int minutes = value.floor();
-    final int seconds = ((value - minutes) * 60).round();
+    final int minutes = (value / 60).floor();
+    final int seconds = (value % 60).round();
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   void _convertDistance(String input, bool isKmToMiles) {
     if (input.isNotEmpty) {
-      double value = double.tryParse(input) ?? 0;
       if (isKmToMiles) {
-        _miController.text = (value * 0.621371).toStringAsFixed(2);
+        _distanceInKm = double.tryParse(input) ?? 0;
+        _distanceInMi = _distanceInKm * 0.621371;
+        _miController.text = _distanceInMi.toStringAsFixed(2);
       } else {
-        _kmController.text = (value * 1.60934).toStringAsFixed(2);
+        _distanceInMi = double.tryParse(input) ?? 0;
+        _distanceInKm = _distanceInMi / 0.621371;
+        _kmController.text = _distanceInKm.toStringAsFixed(2);
       }
     } else {
       if (isKmToMiles) {
@@ -189,33 +181,12 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  String _calculateRunTime() {
-    String formattedTime = '';
-    try {
-      double paceInMinsPerKm = _getPaceInMinutes(_minsPerKmController.text);
-      double distanceInKm = double.tryParse(_kmController.text) ?? 0;
-
-      double totalTimeInMins = paceInMinsPerKm * distanceInKm;
-
-      int hrs = totalTimeInMins ~/ 60;
-      int mins = (totalTimeInMins % 60).floor();
-      int secs = ((totalTimeInMins - totalTimeInMins.toInt()) * 60).toInt();
-
-      formattedTime =
-          '${hrs.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    } catch (e) {
-      // Handle parsing error or leave formattedTime as empty
-    }
-
-    return formattedTime;
-  }
-
-  double _getPaceInMinutes(String pace) {
+  double _getPaceInSeconds(String pace) {
     var parts = pace.split(':');
     if (parts.length == 2) {
       int mins = int.tryParse(parts[0]) ?? 0;
       int secs = int.tryParse(parts[1]) ?? 0;
-      return mins + (secs / 60);
+      return (mins * 60 + secs).toDouble();
     }
     return 0;
   }
@@ -227,12 +198,19 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   String get runTime {
-    if (_minsPerKmController.text.isEmpty ||
-        _minsPerKmController.text == '00:00' ||
-        _kmController.text.isEmpty) {
-      return '';
+    if (_minsPerKmController.text.isNotEmpty &&
+        _minsPerKmController.text != '00:00' &&
+        _kmController.text.isNotEmpty &&
+        _kmController.text != '0') {
+      double totalTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+
+      int hrs = (totalTimeInSecs / 3600).floor();
+      int mins = ((totalTimeInSecs % 3600) / 60).floor();
+      int secs = totalTimeInSecs.round() % 60;
+
+      return '${hrs.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
     }
-    return _calculateRunTime();
+    return '';
   }
 
   @override
@@ -296,7 +274,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(labelText: 'Min/km'),
                       keyboardType: TextInputType.number,
                       inputFormatters: [TimeInputFormatter()],
-                      onChanged: (value) => _convertPace(value, true),
+                      onChanged: (value) {
+                        _convertPace(value, true);
+                        setState(() {}); // This triggers a rebuild
+                      },
                     ),
                     const SizedBox(height: 20),
                     TextField(
@@ -304,7 +285,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(labelText: 'Min/mi'),
                       keyboardType: TextInputType.number,
                       inputFormatters: [TimeInputFormatter()],
-                      onChanged: (value) => _convertPace(value, false),
+                      onChanged: (value) {
+                        _convertPace(value, false);
+                        setState(() {}); // This triggers a rebuild
+                      },
                     )
                   ])),
               Container(
@@ -314,27 +298,33 @@ class _MyHomePageState extends State<MyHomePage> {
                     Text('Distance',
                         style: Theme.of(context).textTheme.titleMedium),
                     TextField(
-                      controller: _kmController,
-                      decoration:
-                          const InputDecoration(labelText: 'Kilometres'),
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
-                      ],
-                      onChanged: (value) => _convertDistance(value, true),
-                    ),
+                        controller: _kmController,
+                        decoration:
+                            const InputDecoration(labelText: 'Kilometres'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'))
+                        ],
+                        onChanged: (value) {
+                          _convertDistance(value, true);
+                          setState(() {});
+                        }),
                     const SizedBox(height: 20),
                     TextField(
-                      controller: _miController,
-                      decoration: const InputDecoration(labelText: 'Miles'),
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
-                      ],
-                      onChanged: (value) => _convertDistance(value, false),
-                    ),
+                        controller: _miController,
+                        decoration: const InputDecoration(labelText: 'Miles'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d*'))
+                        ],
+                        onChanged: (value) {
+                          _convertDistance(value, false);
+                          setState(() {});
+                        }),
                   ])),
               if (runTime.isNotEmpty) ...[
                 RichText(
