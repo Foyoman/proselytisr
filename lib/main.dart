@@ -217,8 +217,11 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-            backgroundColor: Theme.of(context).colorScheme.inversePrimary,
             title: Text(widget.title),
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? Colors.transparent
+                : const Color.fromRGBO(255, 255, 255, 0),
+            elevation: 0,
             actions: <Widget>[
               IconButton(
                 icon: const Icon(Icons.brightness_6),
@@ -238,10 +241,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   children: <Widget>[
                     Text('Energy',
                         style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _kjController,
-                      decoration:
-                          const InputDecoration(labelText: 'Kilojoules'),
+                      decoration: const InputDecoration(
+                          labelText: 'Kilojoules',
+                          border: OutlineInputBorder()),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
@@ -252,7 +257,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     const SizedBox(height: 20),
                     TextField(
                       controller: _calController,
-                      decoration: const InputDecoration(labelText: 'Calories'),
+                      decoration: const InputDecoration(
+                          labelText: 'Calories', border: OutlineInputBorder()),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
@@ -269,9 +275,11 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: Column(children: <Widget>[
                     Text('Pace',
                         style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
                     TextField(
                       controller: _minsPerKmController,
-                      decoration: const InputDecoration(labelText: 'Min/km'),
+                      decoration: const InputDecoration(
+                          labelText: 'Min/km', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
                       inputFormatters: [TimeInputFormatter()],
                       onChanged: (value) {
@@ -282,7 +290,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     const SizedBox(height: 20),
                     TextField(
                       controller: _minsPerMiController,
-                      decoration: const InputDecoration(labelText: 'Min/mi'),
+                      decoration: const InputDecoration(
+                          labelText: 'Min/mi', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
                       inputFormatters: [TimeInputFormatter()],
                       onChanged: (value) {
@@ -297,10 +306,12 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: Column(children: <Widget>[
                     Text('Distance',
                         style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
                     TextField(
                         controller: _kmController,
-                        decoration:
-                            const InputDecoration(labelText: 'Kilometres'),
+                        decoration: const InputDecoration(
+                            labelText: 'Kilometres',
+                            border: OutlineInputBorder()),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         inputFormatters: [
@@ -314,7 +325,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     const SizedBox(height: 20),
                     TextField(
                         controller: _miController,
-                        decoration: const InputDecoration(labelText: 'Miles'),
+                        decoration: const InputDecoration(
+                            labelText: 'Miles', border: OutlineInputBorder()),
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         inputFormatters: [
