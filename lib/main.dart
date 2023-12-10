@@ -350,7 +350,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       )
                     ]))
               ],
-              const SizedBox(height: 400)
+              const SizedBox(height: 200)
             ]))));
   }
 
