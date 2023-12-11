@@ -109,8 +109,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final _minsPerMiController = TextEditingController(text: '00:00');
   final _kjController = TextEditingController();
   final _calController = TextEditingController();
-  final TextEditingController _kmController = TextEditingController();
-  final TextEditingController _miController = TextEditingController();
+  final _kmController = TextEditingController();
+  final _miController = TextEditingController();
 
   double _calories = 0;
   double _kilojoules = 0;
@@ -166,11 +166,11 @@ class _MyHomePageState extends State<MyHomePage> {
       if (isKmToMiles) {
         _distanceInKm = double.tryParse(input) ?? 0;
         _distanceInMi = _distanceInKm * 0.621371;
-        _miController.text = _distanceInMi.toStringAsFixed(2);
+        _miController.text = _distanceInMi.toStringAsFixed(4);
       } else {
         _distanceInMi = double.tryParse(input) ?? 0;
         _distanceInKm = _distanceInMi / 0.621371;
-        _kmController.text = _distanceInKm.toStringAsFixed(2);
+        _kmController.text = _distanceInKm.toStringAsFixed(4);
       }
     } else {
       if (isKmToMiles) {
