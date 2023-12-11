@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +8,7 @@ void main() {
   runApp(const MyApp());
 }
 
-class TimeInputFormatter extends TextInputFormatter {
+class MinsSecsInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
@@ -23,6 +25,29 @@ class TimeInputFormatter extends TextInputFormatter {
 
     String formattedText =
         '${digits.substring(0, 2)}:${digits.substring(2, 4)}';
+
+    return TextEditingValue(
+      text: formattedText,
+      selection: TextSelection.collapsed(offset: formattedText.length),
+    );
+  }
+}
+
+class HrsMinsSecsInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 6) {
+      digits = digits.substring(digits.length - 6);
+    }
+
+    while (digits.length < 6) {
+      digits = '0$digits';
+    }
+
+    String formattedText =
+        '${digits.substring(0, 2)}:${digits.substring(2, 4)}:${digits.substring(4, 6)}';
 
     return TextEditingValue(
       text: formattedText,
@@ -111,6 +136,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final _calController = TextEditingController();
   final _kmController = TextEditingController();
   final _miController = TextEditingController();
+  final _runTimeController = TextEditingController(text: '00:00:00');
 
   double _calories = 0;
   double _kilojoules = 0;
@@ -118,12 +144,18 @@ class _MyHomePageState extends State<MyHomePage> {
   double _paceInSecsPerMi = 0;
   double _distanceInKm = 0;
   double _distanceInMi = 0;
+  double _runTimeInSecs = 0;
 
   @override
   void initState() {
     super.initState();
-    _minsPerKmController.addListener(_updateRunTime);
-    _kmController.addListener(_updateRunTime);
+    _minsPerKmController.addListener(_updateState);
+    _kmController.addListener(_updateState);
+    _runTimeController.addListener(_updateState);
+  }
+
+  void _updateState() {
+    setState(() {});
   }
 
   void _convertEnergy(String input, bool isKjToCal) {
@@ -142,23 +174,38 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _convertPace(String input, bool isMinsPerKm) {
-    double totalSeconds = _getPaceInSeconds(input);
+    double paceInSecs = _getPaceInSecs(input);
+
     if (isMinsPerKm) {
-      _paceInSecsPerKm = totalSeconds;
-      _paceInSecsPerMi = _paceInSecsPerKm * 1.60934; // Convert min/km to min/mi
+      _paceInSecsPerKm = paceInSecs;
+      _paceInSecsPerMi = _paceInSecsPerKm * 1.60934;
       _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
     } else {
-      _paceInSecsPerMi = totalSeconds;
-      _paceInSecsPerKm = _paceInSecsPerMi / 1.60934; // Convert min/mi to min/km
+      _paceInSecsPerMi = paceInSecs;
+      _paceInSecsPerKm = _paceInSecsPerMi / 1.60934;
       _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
     }
-    setState(() {}); // Trigger a rebuild
+
+    _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+    _runTimeController.text = _formatRunTime(_runTimeInSecs);
+
+    setState(() {});
   }
 
-  String _formatPace(double value) {
-    final int minutes = (value / 60).floor();
-    final int seconds = (value % 60).round();
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  double _getPaceInSecs(String pace) {
+    var parts = pace.split(':');
+    if (parts.length == 2) {
+      int mins = int.tryParse(parts[0]) ?? 0;
+      int secs = int.tryParse(parts[1]) ?? 0;
+      return (mins * 60 + secs).toDouble();
+    }
+    return 0;
+  }
+
+  String _formatPace(double paceInSecs) {
+    final int mins = (paceInSecs / 60).floor();
+    final int secs = (paceInSecs % 60).round();
+    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   void _convertDistance(String input, bool isKmToMiles) {
@@ -173,44 +220,42 @@ class _MyHomePageState extends State<MyHomePage> {
         _kmController.text = _distanceInKm.toStringAsFixed(4);
       }
     } else {
-      if (isKmToMiles) {
-        _miController.clear();
-      } else {
-        _kmController.clear();
-      }
+      _distanceInKm = 0;
+      _distanceInMi = 0;
+      _kmController.clear();
+      _miController.clear();
     }
+
+    _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+    _runTimeController.text = _formatRunTime(_runTimeInSecs);
   }
 
-  double _getPaceInSeconds(String pace) {
-    var parts = pace.split(':');
-    if (parts.length == 2) {
-      int mins = int.tryParse(parts[0]) ?? 0;
-      int secs = int.tryParse(parts[1]) ?? 0;
-      return (mins * 60 + secs).toDouble();
+  void _calculatePaceByRunTimeDistance(String input) {
+    double runTimeInSecs = _getRunTimeInSecs(input);
+
+    _paceInSecsPerKm = runTimeInSecs / _distanceInKm;
+    _paceInSecsPerMi = runTimeInSecs / _distanceInMi;
+    _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+    _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+  }
+
+  double _getRunTimeInSecs(String runTime) {
+    var parts = runTime.split(':');
+    if (parts.length == 3) {
+      int hrs = int.tryParse(parts[0]) ?? 0;
+      int mins = int.tryParse(parts[1]) ?? 0;
+      int secs = int.tryParse(parts[2]) ?? 0;
+      return (hrs * 3600 + mins * 60 + secs).toDouble();
     }
     return 0;
   }
 
-  void _updateRunTime() {
-    setState(() {
-      // This will trigger a rebuild of the widget
-    });
-  }
+  String _formatRunTime(double runTimeInSecs) {
+    final int hrs = (runTimeInSecs / 3600).floor();
+    final int mins = (runTimeInSecs % 3600 / 60).floor();
+    final int secs = (runTimeInSecs % 60).round();
 
-  String get runTime {
-    if (_minsPerKmController.text.isNotEmpty &&
-        _minsPerKmController.text != '00:00' &&
-        _kmController.text.isNotEmpty &&
-        _kmController.text != '0') {
-      double totalTimeInSecs = _paceInSecsPerKm * _distanceInKm;
-
-      int hrs = (totalTimeInSecs / 3600).floor();
-      int mins = ((totalTimeInSecs % 3600) / 60).floor();
-      int secs = totalTimeInSecs.round() % 60;
-
-      return '${hrs.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    }
-    return '';
+    return '${hrs.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -236,7 +281,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     children: <Widget>[
               Container(
                 width: 200,
-                margin: const EdgeInsets.only(top: 40, bottom: 40),
+                margin: const EdgeInsets.only(top: 40, bottom: 20),
                 child: Column(
                   children: <Widget>[
                     Text('Energy',
@@ -269,9 +314,18 @@ class _MyHomePageState extends State<MyHomePage> {
                   ],
                 ),
               ),
+              Divider(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white24
+                    : Colors.black26,
+                height: 20,
+                thickness: 1,
+                indent: 20,
+                endIndent: 20,
+              ),
               Container(
                   width: 200,
-                  margin: const EdgeInsets.only(bottom: 40),
+                  margin: const EdgeInsets.only(top: 20, bottom: 20),
                   child: Column(children: <Widget>[
                     Text('Pace',
                         style: Theme.of(context).textTheme.titleMedium),
@@ -281,7 +335,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(
                           labelText: 'Min/km', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [TimeInputFormatter()],
+                      inputFormatters: [MinsSecsInputFormatter()],
                       onChanged: (value) {
                         _convertPace(value, true);
                         setState(() {}); // This triggers a rebuild
@@ -293,7 +347,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(
                           labelText: 'Min/mi', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [TimeInputFormatter()],
+                      inputFormatters: [MinsSecsInputFormatter()],
                       onChanged: (value) {
                         _convertPace(value, false);
                         setState(() {}); // This triggers a rebuild
@@ -338,19 +392,39 @@ class _MyHomePageState extends State<MyHomePage> {
                           setState(() {});
                         }),
                   ])),
-              if (runTime.isNotEmpty) ...[
-                RichText(
-                    text: TextSpan(
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        children: <TextSpan>[
-                      const TextSpan(text: 'Time to run at pace: '),
-                      TextSpan(
-                        text: runTime,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      )
-                    ]))
-              ],
-              const SizedBox(height: 200)
+              // if (runTime.isNotEmpty) ...[
+              //   RichText(
+              //       text: TextSpan(
+              //           style: Theme.of(context).textTheme.bodyMedium,
+              //           children: <TextSpan>[
+              //         const TextSpan(text: 'Time to run at pace: '),
+              //         TextSpan(
+              //           text: runTime,
+              //           style: const TextStyle(fontWeight: FontWeight.w600),
+              //         )
+              //       ]))
+              // ],
+              // const SizedBox(height: 200)
+              Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(bottom: 240),
+                  child: Column(children: <Widget>[
+                    Text('Time',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    TextField(
+                        enabled: _distanceInKm > 0 || _distanceInMi > 0,
+                        controller: _runTimeController,
+                        decoration: const InputDecoration(
+                            labelText: 'Time to run at pace',
+                            border: OutlineInputBorder()),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [HrsMinsSecsInputFormatter()],
+                        onChanged: (value) {
+                          _calculatePaceByRunTimeDistance(value);
+                          setState(() {});
+                        }),
+                  ]))
             ]))));
   }
 
