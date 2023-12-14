@@ -153,7 +153,11 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _kmController.addListener(_updateState);
+    _miController.addListener(_updateState);
   }
+
+  void _updateState() => {setState(() {})};
 
   void _handleSpeed(String input, bool isKmPerHr) {
     double value = double.tryParse(input) ?? 0;
@@ -185,22 +189,35 @@ class _MyHomePageState extends State<MyHomePage> {
   void _handlePace(String input, bool isMinsPerKm) {
     double paceInSecs = _getPaceInSecs(input);
 
-    if (isMinsPerKm) {
-      _paceInSecsPerKm = paceInSecs;
-      _paceInSecsPerMi = _paceInSecsPerKm * 1.60934;
-      _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
-      _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
-      _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
-      _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
-      _runTimeController.text = _formatRunTime(_runTimeInSecs);
+    if (paceInSecs > 0) {
+      if (isMinsPerKm) {
+        _paceInSecsPerKm = paceInSecs;
+        _paceInSecsPerMi = _paceInSecsPerKm * 1.60934;
+        _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+        _kmPerHrController.text =
+            (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+        _miPerHrController.text =
+            (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+        _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+        _runTimeController.text = _formatRunTime(_runTimeInSecs);
+      } else {
+        _paceInSecsPerMi = paceInSecs;
+        _paceInSecsPerKm = _paceInSecsPerMi / 1.60934;
+        _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+        _kmPerHrController.text =
+            (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+        _miPerHrController.text =
+            (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+        _runTimeInSecs = _paceInSecsPerMi * _distanceInMi;
+        _runTimeController.text = _formatRunTime(_runTimeInSecs);
+      }
     } else {
-      _paceInSecsPerMi = paceInSecs;
-      _paceInSecsPerKm = _paceInSecsPerMi / 1.60934;
-      _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
-      _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
-      _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
-      _runTimeInSecs = _paceInSecsPerMi * _distanceInMi;
-      _runTimeController.text = _formatRunTime(_runTimeInSecs);
+      _paceInSecsPerKm = 0;
+      _paceInSecsPerMi = 0;
+      _minsPerKmController.text = '00:00.00';
+      _minsPerMiController.text = '00:00.00';
+      _kmPerHrController.clear();
+      _miPerHrController.clear();
     }
   }
 
