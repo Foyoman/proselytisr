@@ -320,14 +320,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _handleWeight(String input, bool isKgToLb) {
     double value = double.tryParse(input) ?? 0;
-    if (isKgToLb) {
-      _kilograms = value;
-      _pounds = _kilograms * 2.20462;
-      _lbController.text = _pounds.toStringAsFixed(4);
+
+    if (value > 0) {
+      if (isKgToLb) {
+        _kilograms = value;
+        _pounds = _kilograms * 2.20462;
+        _lbController.text = _pounds.toStringAsFixed(4);
+      } else {
+        _pounds = value;
+        _kilograms = _pounds * 0.453592;
+        _kgController.text = _kilograms.toStringAsFixed(4);
+      }
     } else {
-      _pounds = value;
-      _kilograms = _pounds * 0.453592;
-      _kgController.text = _kilograms.toStringAsFixed(4);
+      _kilograms = 0;
+      _pounds = 0;
+      _kgController.clear();
+      _lbController.clear();
     }
   }
 
