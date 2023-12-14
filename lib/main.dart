@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,23 +6,23 @@ void main() {
   runApp(const MyApp());
 }
 
-class MinsSecsInputFormatter extends TextInputFormatter {
+class MinsSecsMillisInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
     // Only allow numeric characters and limit the length to 4
     String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length > 4) {
-      digits = digits.substring(digits.length - 4);
+    if (digits.length > 6) {
+      digits = digits.substring(digits.length - 6);
     }
 
     // Format the string with leading zeros and a colon
-    while (digits.length < 4) {
+    while (digits.length < 6) {
       digits = '0$digits';
     }
 
     String formattedText =
-        '${digits.substring(0, 2)}:${digits.substring(2, 4)}';
+        '${digits.substring(0, 2)}:${digits.substring(2, 4)}.${digits.substring(4, 6)}';
 
     return TextEditingValue(
       text: formattedText,
@@ -33,21 +31,21 @@ class MinsSecsInputFormatter extends TextInputFormatter {
   }
 }
 
-class HrsMinsSecsInputFormatter extends TextInputFormatter {
+class HrsMinsSecsMillisInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
     String digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length > 6) {
-      digits = digits.substring(digits.length - 6);
+    if (digits.length > 8) {
+      digits = digits.substring(digits.length - 8);
     }
 
-    while (digits.length < 6) {
+    while (digits.length < 8) {
       digits = '0$digits';
     }
 
     String formattedText =
-        '${digits.substring(0, 2)}:${digits.substring(2, 4)}:${digits.substring(4, 6)}';
+        '${digits.substring(0, 2)}:${digits.substring(2, 4)}:${digits.substring(4, 6)}.${digits.substring(6, 8)}';
 
     return TextEditingValue(
       text: formattedText,
@@ -130,94 +128,119 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final _minsPerKmController = TextEditingController(text: '00:00');
-  final _minsPerMiController = TextEditingController(text: '00:00');
-  final _kjController = TextEditingController();
-  final _calController = TextEditingController();
+  final _kmPerHrController = TextEditingController();
+  final _miPerHrController = TextEditingController();
+  final _minsPerKmController = TextEditingController(text: '00:00.00');
+  final _minsPerMiController = TextEditingController(text: '00:00.00');
   final _kmController = TextEditingController();
   final _miController = TextEditingController();
-  final _runTimeController = TextEditingController(text: '00:00:00');
+  final _runTimeController = TextEditingController(text: '00:00:00.00');
+  final _kjController = TextEditingController();
+  final _calController = TextEditingController();
+  final _kgController = TextEditingController();
+  final _lbController = TextEditingController();
 
-  double _calories = 0;
-  double _kilojoules = 0;
   double _paceInSecsPerKm = 0;
   double _paceInSecsPerMi = 0;
   double _distanceInKm = 0;
   double _distanceInMi = 0;
   double _runTimeInSecs = 0;
+  double _calories = 0;
+  double _kilojoules = 0;
+  double _kilograms = 0;
+  double _pounds = 0;
 
   @override
   void initState() {
     super.initState();
-    _minsPerKmController.addListener(_updateState);
-    _kmController.addListener(_updateState);
-    _runTimeController.addListener(_updateState);
   }
 
-  void _updateState() {
-    setState(() {});
-  }
+  void _handleSpeed(String input, bool isKmPerHr) {
+    double value = double.tryParse(input) ?? 0;
 
-  void _convertEnergy(String input, bool isKjToCal) {
-    setState(() {
-      double value = double.tryParse(input) ?? 0;
-      if (isKjToCal) {
-        _kilojoules = value;
-        _calories = _kilojoules * 0.239005736; // Convert kilojoules to calories
-        _calController.text = _calories.toStringAsFixed(2);
+    if (input.isNotEmpty) {
+      if (isKmPerHr) {
+        _paceInSecsPerKm = 60 / value * 60;
+        _paceInSecsPerMi = _paceInSecsPerKm * 1.60934;
+        _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+        _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+        _miPerHrController.text = (value * 0.621371).toStringAsFixed(2);
       } else {
-        _calories = value;
-        _kilojoules = _calories / 0.239005736; // Convert calories to kilojoules
-        _kjController.text = _kilojoules.toStringAsFixed(2);
+        _paceInSecsPerMi = 60 / value * 60;
+        _paceInSecsPerKm = 60 / value * 60 / 1.60934;
+        _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+        _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+        _kmPerHrController.text = (value / 0.621371).toStringAsFixed(2);
       }
-    });
+    } else {
+      _paceInSecsPerKm = 0;
+      _paceInSecsPerMi = 0;
+      _minsPerKmController.clear();
+      _minsPerMiController.clear();
+      _kmPerHrController.clear();
+      _miPerHrController.clear();
+    }
   }
 
-  void _convertPace(String input, bool isMinsPerKm) {
+  void _handlePace(String input, bool isMinsPerKm) {
     double paceInSecs = _getPaceInSecs(input);
 
     if (isMinsPerKm) {
       _paceInSecsPerKm = paceInSecs;
       _paceInSecsPerMi = _paceInSecsPerKm * 1.60934;
       _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+      _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+      _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+      _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+      _runTimeController.text = _formatRunTime(_runTimeInSecs);
     } else {
       _paceInSecsPerMi = paceInSecs;
       _paceInSecsPerKm = _paceInSecsPerMi / 1.60934;
       _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+      _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+      _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+      _runTimeInSecs = _paceInSecsPerMi * _distanceInMi;
+      _runTimeController.text = _formatRunTime(_runTimeInSecs);
     }
-
-    _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
-    _runTimeController.text = _formatRunTime(_runTimeInSecs);
-
-    setState(() {});
   }
 
   double _getPaceInSecs(String pace) {
     var parts = pace.split(':');
     if (parts.length == 2) {
       int mins = int.tryParse(parts[0]) ?? 0;
-      int secs = int.tryParse(parts[1]) ?? 0;
-      return (mins * 60 + secs).toDouble();
+      double secs = double.tryParse(parts[1]) ?? 0;
+      debugPrint('$parts');
+      debugPrint('${mins * 60 + secs}');
+      return mins * 60 + secs;
     }
     return 0;
   }
 
-  String _formatPace(double paceInSecs) {
-    final int mins = (paceInSecs / 60).floor();
-    final int secs = (paceInSecs % 60).round();
-    return '${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  String formatUnit(int value) {
+    return value.toString().padLeft(2, '0');
   }
 
-  void _convertDistance(String input, bool isKmToMiles) {
+  String _formatPace(double paceInSecs) {
+    final int mins = (paceInSecs / 60).floor();
+    final int secs = (paceInSecs % 60).floor();
+    final int millis = ((paceInSecs % 60 - secs) * 100).floor();
+    return '${formatUnit(mins)}:${formatUnit(secs)}.${formatUnit(millis)}';
+  }
+
+  void _handleDistance(String input, bool isKmToMiles) {
     if (input.isNotEmpty) {
       if (isKmToMiles) {
         _distanceInKm = double.tryParse(input) ?? 0;
         _distanceInMi = _distanceInKm * 0.621371;
         _miController.text = _distanceInMi.toStringAsFixed(4);
+        _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
+        _runTimeController.text = _formatRunTime(_runTimeInSecs);
       } else {
         _distanceInMi = double.tryParse(input) ?? 0;
         _distanceInKm = _distanceInMi / 0.621371;
         _kmController.text = _distanceInKm.toStringAsFixed(4);
+        _runTimeInSecs = _paceInSecsPerMi * _distanceInMi;
+        _runTimeController.text = _formatRunTime(_runTimeInSecs);
       }
     } else {
       _distanceInKm = 0;
@@ -225,27 +248,28 @@ class _MyHomePageState extends State<MyHomePage> {
       _kmController.clear();
       _miController.clear();
     }
-
-    _runTimeInSecs = _paceInSecsPerKm * _distanceInKm;
-    _runTimeController.text = _formatRunTime(_runTimeInSecs);
   }
 
-  void _calculatePaceByRunTimeDistance(String input) {
+  void _handleTime(String input) {
     double runTimeInSecs = _getRunTimeInSecs(input);
 
     _paceInSecsPerKm = runTimeInSecs / _distanceInKm;
     _paceInSecsPerMi = runTimeInSecs / _distanceInMi;
     _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
     _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+    _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+    _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
   }
 
   double _getRunTimeInSecs(String runTime) {
     var parts = runTime.split(':');
+
     if (parts.length == 3) {
       int hrs = int.tryParse(parts[0]) ?? 0;
       int mins = int.tryParse(parts[1]) ?? 0;
-      int secs = int.tryParse(parts[2]) ?? 0;
-      return (hrs * 3600 + mins * 60 + secs).toDouble();
+      double secs = double.tryParse(parts[2]) ?? 0;
+
+      return hrs * 3600 + mins * 60 + secs;
     }
     return 0;
   }
@@ -253,9 +277,41 @@ class _MyHomePageState extends State<MyHomePage> {
   String _formatRunTime(double runTimeInSecs) {
     final int hrs = (runTimeInSecs / 3600).floor();
     final int mins = (runTimeInSecs % 3600 / 60).floor();
-    final int secs = (runTimeInSecs % 60).round();
+    final int secs = (runTimeInSecs % 60).floor();
+    final int millis = ((runTimeInSecs % 60 - secs) * 100).floor();
 
-    return '${hrs.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    debugPrint('');
+    debugPrint('$runTimeInSecs');
+    debugPrint('${(runTimeInSecs % 60 - secs) * 100}');
+    debugPrint('');
+
+    return '${formatUnit(hrs)}:${formatUnit(mins)}:${formatUnit(secs)}.${formatUnit(millis)}';
+  }
+
+  void _handleEnergy(String input, bool isKjToCal) {
+    double value = double.tryParse(input) ?? 0;
+    if (isKjToCal) {
+      _kilojoules = value;
+      _calories = _kilojoules * 0.239005736; // Convert kilojoules to calories
+      _calController.text = _calories.toStringAsFixed(2);
+    } else {
+      _calories = value;
+      _kilojoules = _calories / 0.239005736; // Convert calories to kilojoules
+      _kjController.text = _kilojoules.toStringAsFixed(2);
+    }
+  }
+
+  void _handleWeight(String input, bool isKgToLb) {
+    double value = double.tryParse(input) ?? 0;
+    if (isKgToLb) {
+      _kilograms = value;
+      _pounds = _kilograms * 2.20462;
+      _lbController.text = _pounds.toStringAsFixed(4);
+    } else {
+      _pounds = value;
+      _kilograms = _pounds * 0.453592;
+      _kgController.text = _kilograms.toStringAsFixed(4);
+    }
   }
 
   @override
@@ -280,52 +336,39 @@ class _MyHomePageState extends State<MyHomePage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
               Container(
-                width: 200,
-                margin: const EdgeInsets.only(top: 40, bottom: 20),
-                child: Column(
-                  children: <Widget>[
-                    Text('Energy',
+                  width: 200,
+                  margin: const EdgeInsets.only(top: 40, bottom: 20),
+                  child: Column(children: <Widget>[
+                    Text('Speed',
                         style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 10),
                     TextField(
-                      controller: _kjController,
+                      controller: _kmPerHrController,
                       decoration: const InputDecoration(
-                          labelText: 'Kilojoules',
-                          border: OutlineInputBorder()),
+                          labelText: 'Km/hr', border: OutlineInputBorder()),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
                       ],
-                      onChanged: (value) => _convertEnergy(value, true),
+                      onChanged: (value) => _handleSpeed(value, true),
                     ),
                     const SizedBox(height: 20),
                     TextField(
-                      controller: _calController,
+                      controller: _miPerHrController,
                       decoration: const InputDecoration(
-                          labelText: 'Calories', border: OutlineInputBorder()),
+                          labelText: 'Mi/hr', border: OutlineInputBorder()),
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
                         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
                       ],
-                      onChanged: (value) => _convertEnergy(value, false),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white24
-                    : Colors.black26,
-                height: 20,
-                thickness: 1,
-                indent: 20,
-                endIndent: 20,
-              ),
+                      onChanged: (value) => _handleSpeed(value, false),
+                    )
+                  ])),
               Container(
                   width: 200,
-                  margin: const EdgeInsets.only(top: 20, bottom: 20),
+                  margin: const EdgeInsets.only(bottom: 20),
                   child: Column(children: <Widget>[
                     Text('Pace',
                         style: Theme.of(context).textTheme.titleMedium),
@@ -335,11 +378,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(
                           labelText: 'Min/km', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [MinsSecsInputFormatter()],
-                      onChanged: (value) {
-                        _convertPace(value, true);
-                        setState(() {}); // This triggers a rebuild
-                      },
+                      inputFormatters: [MinsSecsMillisInputFormatter()],
+                      onChanged: (value) => _handlePace(value, true),
                     ),
                     const SizedBox(height: 20),
                     TextField(
@@ -347,11 +387,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       decoration: const InputDecoration(
                           labelText: 'Min/mi', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      inputFormatters: [MinsSecsInputFormatter()],
-                      onChanged: (value) {
-                        _convertPace(value, false);
-                        setState(() {}); // This triggers a rebuild
-                      },
+                      inputFormatters: [MinsSecsMillisInputFormatter()],
+                      onChanged: (value) => _handlePace(value, false),
                     )
                   ])),
               Container(
@@ -372,10 +409,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           FilteringTextInputFormatter.allow(
                               RegExp(r'^\d*\.?\d*'))
                         ],
-                        onChanged: (value) {
-                          _convertDistance(value, true);
-                          setState(() {});
-                        }),
+                        onChanged: (value) => _handleDistance(value, true)),
                     const SizedBox(height: 20),
                     TextField(
                         controller: _miController,
@@ -387,27 +421,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           FilteringTextInputFormatter.allow(
                               RegExp(r'^\d*\.?\d*'))
                         ],
-                        onChanged: (value) {
-                          _convertDistance(value, false);
-                          setState(() {});
-                        }),
+                        onChanged: (value) => _handleDistance(value, false)),
                   ])),
-              // if (runTime.isNotEmpty) ...[
-              //   RichText(
-              //       text: TextSpan(
-              //           style: Theme.of(context).textTheme.bodyMedium,
-              //           children: <TextSpan>[
-              //         const TextSpan(text: 'Time to run at pace: '),
-              //         TextSpan(
-              //           text: runTime,
-              //           style: const TextStyle(fontWeight: FontWeight.w600),
-              //         )
-              //       ]))
-              // ],
-              // const SizedBox(height: 200)
               Container(
                   width: 200,
-                  margin: const EdgeInsets.only(bottom: 240),
+                  margin: const EdgeInsets.only(bottom: 20),
                   child: Column(children: <Widget>[
                     Text('Time',
                         style: Theme.of(context).textTheme.titleMedium),
@@ -416,15 +434,99 @@ class _MyHomePageState extends State<MyHomePage> {
                         enabled: _distanceInKm > 0 || _distanceInMi > 0,
                         controller: _runTimeController,
                         decoration: const InputDecoration(
-                            labelText: 'Time to run at pace',
+                            labelText: 'Distance / speed/pace',
                             border: OutlineInputBorder()),
                         keyboardType: TextInputType.number,
-                        inputFormatters: [HrsMinsSecsInputFormatter()],
-                        onChanged: (value) {
-                          _calculatePaceByRunTimeDistance(value);
-                          setState(() {});
-                        }),
-                  ]))
+                        inputFormatters: [HrsMinsSecsMillisInputFormatter()],
+                        onChanged: (value) => _handleTime(value)),
+                  ])),
+              Divider(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white24
+                    : Colors.black26,
+                height: 20,
+                thickness: 1,
+                indent: 20,
+                endIndent: 20,
+              ),
+              Container(
+                width: 200,
+                margin: const EdgeInsets.only(top: 20, bottom: 20),
+                child: Column(
+                  children: <Widget>[
+                    Text('Energy',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _kjController,
+                      decoration: const InputDecoration(
+                          labelText: 'Kilojoules',
+                          border: OutlineInputBorder()),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                      ],
+                      onChanged: (value) => _handleEnergy(value, true),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _calController,
+                      decoration: const InputDecoration(
+                          labelText: 'Calories', border: OutlineInputBorder()),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                      ],
+                      onChanged: (value) => _handleEnergy(value, false),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white24
+                    : Colors.black26,
+                height: 20,
+                thickness: 1,
+                indent: 20,
+                endIndent: 20,
+              ),
+              Container(
+                width: 200,
+                margin: const EdgeInsets.only(top: 20, bottom: 240),
+                child: Column(
+                  children: <Widget>[
+                    Text('Weight',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _kgController,
+                      decoration: const InputDecoration(
+                          labelText: 'Kilograms', border: OutlineInputBorder()),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                      ],
+                      onChanged: (value) => _handleWeight(value, true),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _lbController,
+                      decoration: const InputDecoration(
+                          labelText: 'Pounds', border: OutlineInputBorder()),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+                      ],
+                      onChanged: (value) => _handleWeight(value, false),
+                    ),
+                  ],
+                ),
+              ),
             ]))));
   }
 
