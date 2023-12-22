@@ -1,4 +1,4 @@
-# proselytr
+# proselytisr
 
 A new Flutter project.
 

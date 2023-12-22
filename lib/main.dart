@@ -104,13 +104,13 @@ class MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'proselytr',
+      title: 'proselytisr',
       // Choose the theme based on the state
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
       themeMode: _themeMode,
       home: MyHomePage(
-        title: 'proselytr',
+        title: 'proselytisr',
         toggleTheme: _toggleTheme,
       ),
     );
@@ -179,8 +179,8 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       _paceInSecsPerKm = 0;
       _paceInSecsPerMi = 0;
-      _minsPerKmController.clear();
-      _minsPerMiController.clear();
+      _minsPerKmController.text = '00:00.00';
+      _minsPerMiController.text = '00:00.00';
       _kmPerHrController.clear();
       _miPerHrController.clear();
     }
@@ -270,12 +270,21 @@ class _MyHomePageState extends State<MyHomePage> {
   void _handleTime(String input) {
     double runTimeInSecs = _getRunTimeInSecs(input);
 
-    _paceInSecsPerKm = runTimeInSecs / _distanceInKm;
-    _paceInSecsPerMi = runTimeInSecs / _distanceInMi;
-    _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
-    _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
-    _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
-    _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+    if (runTimeInSecs > 0) {
+      _paceInSecsPerKm = runTimeInSecs / _distanceInKm;
+      _paceInSecsPerMi = runTimeInSecs / _distanceInMi;
+      _minsPerKmController.text = _formatPace(_paceInSecsPerKm);
+      _minsPerMiController.text = _formatPace(_paceInSecsPerMi);
+      _kmPerHrController.text = (60 / _paceInSecsPerKm * 60).toStringAsFixed(2);
+      _miPerHrController.text = (60 / _paceInSecsPerMi * 60).toStringAsFixed(2);
+    } else {
+      _paceInSecsPerKm = 0;
+      _paceInSecsPerMi = 0;
+      _kmPerHrController.clear();
+      _miPerHrController.clear();
+      _minsPerKmController.text = '00:00.00';
+      _minsPerMiController.text = '00:00.00';
+    }
   }
 
   double _getRunTimeInSecs(String runTime) {
@@ -459,7 +468,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         enabled: _distanceInKm > 0 || _distanceInMi > 0,
                         controller: _runTimeController,
                         decoration: const InputDecoration(
-                            labelText: 'Distance / speed/pace',
+                            labelText: 'Distance ÷ speed/pace',
                             border: OutlineInputBorder()),
                         keyboardType: TextInputType.number,
                         inputFormatters: [HrsMinsSecsMillisInputFormatter()],

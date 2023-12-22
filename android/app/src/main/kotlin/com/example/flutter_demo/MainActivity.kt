@@ -1,4 +1,4 @@
-package com.example.proselytr
+package com.example.proselytisr
 
 import io.flutter.embedding.android.FlutterActivity
 
